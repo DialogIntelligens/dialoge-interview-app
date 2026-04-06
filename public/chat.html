@@ -253,7 +253,7 @@
           </div>
           <iframe
             id="dialoge-iframe"
-            src="https://chatbot.dialogintelligens.dk?parentOrigin=https://dialoge-interview-app.onrender.com"
+            src=""
             frameborder="0"
             allow="microphone"
             style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;opacity:0;transition:opacity 0.3s;"
@@ -310,7 +310,7 @@
     iframe.style.opacity = '0';
 
     // Reload the iframe with the new chatbot
-    const src = 'https://chatbot.dialogintelligens.dk?parentOrigin=https://dialoge-interview-app.onrender.com&t=' + Date.now();
+    const src = 'https://chatbot.dialogintelligens.dk?parentOrigin=' + encodeURIComponent(window.location.origin) + '&t=' + Date.now();
     iframe.src = src;
 
     iframe.onload = () => {
