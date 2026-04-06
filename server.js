@@ -64,11 +64,13 @@ app.post('/api/login', (req, res) => {
   if (!chatbotId || !chatbotId.trim()) {
     return res.status(400).json({ success: false, message: 'Please enter a client ID.' });
   }
-  if (!code || code.trim() !== ACCESS_CODE) {
+  const clientName = chatbotId.trim().toLowerCase();
+  const expectedCode = clientName + '1306!#';
+
+  if (!code || code.trim() !== expectedCode) {
     return res.status(401).json({ success: false, message: 'Invalid access code. Please try again.' });
   }
 
-  const clientName = chatbotId.trim().toLowerCase();
   req.session.authenticated = true;
   req.session.clientName = clientName;
 
