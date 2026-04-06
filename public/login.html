@@ -199,14 +199,14 @@
         </svg>
       </div>
       <h1>Welcome</h1>
-      <p>Enter your chatbot ID and access code to start the session.</p>
+      <p>Enter your client ID and access code to start the session.</p>
     </div>
 
     <div class="error-msg" id="error-msg"></div>
 
     <form id="login-form">
       <div class="form-group">
-        <label for="chatbot-id">Chatbot ID</label>
+        <label for="chatbot-id">Client ID</label>
         <input
           type="text"
           id="chatbot-id"
@@ -246,7 +246,7 @@
       const code = document.getElementById('code').value.trim();
 
       if (!chatbotId) {
-        errorMsg.textContent = 'Please enter a chatbot ID.';
+        errorMsg.textContent = 'Please enter a client ID.';
         errorMsg.classList.add('show');
         document.getElementById('chatbot-id').focus();
         return;
@@ -270,7 +270,7 @@
         const data = await res.json();
 
         if (data.success) {
-          window.location.href = '/chat';
+          window.location.href = data.redirect || '/chat';
         } else {
           errorMsg.textContent = data.message || 'Invalid access code.';
           errorMsg.classList.add('show');

@@ -6,11 +6,21 @@ const https = require('https');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// The access code clients use to enter — set via environment variable on Render
-const ACCESS_CODE = process.env.ACCESS_CODE || 'interview2025';
+const ACCESS_CODE    = process.env.ACCESS_CODE    || 'interview2025';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'dialoge-secret-key-change-me';
 const DIALOGE_API_KEY = process.env.DIALOGE_API_KEY || '';
-const DIALOGE_API_BASE = 'https://api.dialogintelligens.dk';
+
+// CLIENTS env var — JSON map of clientName → [chatbotId, ...]
+// Example: {"intern":["intern-a","intern-b","intern-c"],"dafolo":["dafolo"]}
+// If not set, the login "username" is treated directly as the chatbot ID (legacy behaviour).
+let CLIENTS = null;
+try {
+  if (process.env.CLIENTS) {
+    CLIENTS = JSON.parse(process.env.CLIENTS);
+  }
+} catch (e) {
+  console.error('Could not parse CLIENTS env var as JSON:', e.message);
+}
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -21,84 +31,139 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: false, // set to true if using HTTPS (Render provides HTTPS)
+    secure: false,
     maxAge: 8 * 60 * 60 * 1000 // 8 hours
   }
 }));
 
-// Auth middleware
+// ── Auth middleware ──────────────────────────────────────────────────────────
 function requireAuth(req, res, next) {
-  if (req.session && req.session.authenticated) {
-    return next();
-  }
+  if (req.session && req.session.authenticated) return next();
   res.redirect('/');
 }
 
-// Root — redirect to chat if already logged in
+// ── Root ─────────────────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
   if (req.session && req.session.authenticated) {
-    return res.redirect('/chat');
+    return res.redirect(req.session.chatbotId ? '/chat' : '/select');
   }
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-// Login API — username is the chatbot ID, password is the shared access code
+// ── Login ─────────────────────────────────────────────────────────────────────
 app.post('/api/login', (req, res) => {
-  const { chatbotId, code } = req.body;
+  const { chatbotId, code } = req.body;        // chatbotId field = "username" from the form
+
   if (!chatbotId || !chatbotId.trim()) {
-    return res.status(400).json({ success: false, message: 'Please enter a chatbot ID.' });
+    return res.status(400).json({ success: false, message: 'Please enter a client ID.' });
   }
-  if (code && code.trim() === ACCESS_CODE) {
-    req.session.authenticated = true;
-    req.session.chatbotId = chatbotId.trim();
-    return res.json({ success: true });
+  if (!code || code.trim() !== ACCESS_CODE) {
+    return res.status(401).json({ success: false, message: 'Invalid access code. Please try again.' });
   }
-  res.status(401).json({ success: false, message: 'Invalid access code. Please try again.' });
+
+  const clientName = chatbotId.trim().toLowerCase();
+  req.session.authenticated = true;
+  req.session.clientName = clientName;
+
+  if (CLIENTS) {
+    // Find a case-insensitive match in CLIENTS
+    const key = Object.keys(CLIENTS).find(k => k.toLowerCase() === clientName);
+    const bots = key ? CLIENTS[key] : null;
+
+    if (!bots || bots.length === 0) {
+      return res.status(401).json({ success: false, message: 'Unknown client ID.' });
+    }
+
+    if (bots.length === 1) {
+      // Only one chatbot — go straight to chat
+      req.session.chatbotId = bots[0];
+      req.session.chatbots  = bots;
+      return res.json({ success: true, redirect: '/chat' });
+    }
+
+    // Multiple chatbots — let the user pick
+    req.session.chatbotId = null;
+    req.session.chatbots  = bots;
+    return res.json({ success: true, redirect: '/select' });
+  }
+
+  // Legacy: no CLIENTS map — treat the entered name as the chatbot ID directly
+  req.session.chatbotId = clientName;
+  req.session.chatbots  = [clientName];
+  return res.json({ success: true, redirect: '/chat' });
 });
 
-// Session info — returns chatbot ID for the current session
+// ── Session info ──────────────────────────────────────────────────────────────
 app.get('/api/session', requireAuth, (req, res) => {
-  res.json({ chatbotId: req.session.chatbotId });
+  res.json({
+    chatbotId: req.session.chatbotId,
+    chatbots:  req.session.chatbots || []
+  });
 });
 
-// Chat page — protected
+// ── Select chatbot ────────────────────────────────────────────────────────────
+app.get('/select', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'select.html'));
+});
+
+app.post('/api/select', requireAuth, (req, res) => {
+  const { chatbotId } = req.body;
+  const allowed = req.session.chatbots || [];
+  if (!chatbotId || !allowed.includes(chatbotId)) {
+    return res.status(400).json({ success: false, message: 'Invalid selection.' });
+  }
+  req.session.chatbotId = chatbotId;
+  res.json({ success: true });
+});
+
+// ── Chat page ─────────────────────────────────────────────────────────────────
 app.get('/chat', requireAuth, (req, res) => {
+  if (!req.session.chatbotId) return res.redirect('/select');
   res.sendFile(path.join(__dirname, 'public', 'chat.html'));
 });
 
-// Helper: get a Dialoge JWT via Basic Auth
-async function getDialogeToken() {
+// ── Dialoge helpers ───────────────────────────────────────────────────────────
+function dialoge(method, urlPath, token, body) {
   return new Promise((resolve, reject) => {
-    const credentials = Buffer.from(`${DIALOGE_API_KEY}:`).toString('base64');
+    const bodyStr = body ? JSON.stringify(body) : '';
+    const headers = {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(bodyStr)
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    } else {
+      // Basic Auth with API key as username, empty password
+      const creds = Buffer.from(`${DIALOGE_API_KEY}:`).toString('base64');
+      headers['Authorization'] = `Basic ${creds}`;
+    }
     const options = {
       hostname: 'api.dialogintelligens.dk',
-      path: '/api/v1/chat/auth',
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${credentials}`,
-        'Content-Type': 'application/json',
-        'Content-Length': 0
-      }
+      path: urlPath,
+      method,
+      headers
     };
-    const req = https.request(options, (res) => {
+    const req = https.request(options, (resp) => {
       let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          const parsed = JSON.parse(data);
-          if (parsed.token) resolve(parsed.token);
-          else reject(new Error('No token in response: ' + data));
-        } catch (e) {
-          reject(e);
-        }
+      resp.on('data', chunk => data += chunk);
+      resp.on('end', () => {
+        try { resolve({ status: resp.statusCode, body: JSON.parse(data) }); }
+        catch (e) { resolve({ status: resp.statusCode, body: data }); }
       });
     });
     req.on('error', reject);
+    if (bodyStr) req.write(bodyStr);
     req.end();
   });
 }
 
-// Rate API — proxies star rating + comment to the Dialoge platform
+async function getDialogeToken(chatbotId) {
+  const resp = await dialoge('POST', '/api/v1/chat/auth', null, { chatbot_id: chatbotId });
+  if (resp.body && resp.body.token) return resp.body.token;
+  throw new Error('No token in response: ' + JSON.stringify(resp.body));
+}
+
+// ── Rate API ──────────────────────────────────────────────────────────────────
 app.post('/api/rate', requireAuth, async (req, res) => {
   const { rating, comment } = req.body;
   const chatbotId = req.session.chatbotId;
@@ -108,36 +173,18 @@ app.post('/api/rate', requireAuth, async (req, res) => {
   }
 
   if (!DIALOGE_API_KEY) {
-    // API key not configured — still return success so UI doesn't break
     console.warn('DIALOGE_API_KEY not set; skipping rate API call.');
     return res.json({ success: true });
   }
 
   try {
-    const token = await getDialogeToken();
-
-    await new Promise((resolve, reject) => {
-      const body = JSON.stringify({ chatbotId, rating, comment: comment || '' });
-      const options = {
-        hostname: 'api.dialogintelligens.dk',
-        path: '/api/v1/chat/rate',
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(body)
-        }
-      };
-      const request = https.request(options, (response) => {
-        let data = '';
-        response.on('data', chunk => data += chunk);
-        response.on('end', () => resolve(data));
-      });
-      request.on('error', reject);
-      request.write(body);
-      request.end();
+    const token = await getDialogeToken(chatbotId);
+    const resp = await dialoge('POST', '/api/v1/chat/rate', token, {
+      chatbot_id: chatbotId,
+      rating,
+      comment: comment || ''
     });
-
+    console.log('Dialoge rate response:', resp.status, JSON.stringify(resp.body));
     res.json({ success: true });
   } catch (err) {
     console.error('Dialoge rate error:', err.message);
@@ -145,11 +192,9 @@ app.post('/api/rate', requireAuth, async (req, res) => {
   }
 });
 
-// Logout
+// ── Logout ────────────────────────────────────────────────────────────────────
 app.post('/api/logout', (req, res) => {
-  req.session.destroy(() => {
-    res.json({ success: true });
-  });
+  req.session.destroy(() => res.json({ success: true }));
 });
 
 app.listen(PORT, () => {
