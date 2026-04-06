@@ -39,14 +39,23 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-// Login API
+// Login API — username is the chatbot ID, password is the shared access code
 app.post('/api/login', (req, res) => {
-  const { code } = req.body;
+  const { chatbotId, code } = req.body;
+  if (!chatbotId || !chatbotId.trim()) {
+    return res.status(400).json({ success: false, message: 'Please enter a chatbot ID.' });
+  }
   if (code && code.trim() === ACCESS_CODE) {
     req.session.authenticated = true;
+    req.session.chatbotId = chatbotId.trim();
     return res.json({ success: true });
   }
   res.status(401).json({ success: false, message: 'Invalid access code. Please try again.' });
+});
+
+// Session info — returns chatbot ID for the current session
+app.get('/api/session', requireAuth, (req, res) => {
+  res.json({ chatbotId: req.session.chatbotId });
 });
 
 // Chat page — protected

@@ -476,24 +476,32 @@
 
 <script>
   // ── Direct iframe chatbot setup ───────────────────────────────
-  // The Dialoge chatbot is loaded as a direct iframe.
-  // After it loads we send a postMessage with the chatbot ID.
+  // Fetch the chatbot ID for this session, then initialise the iframe.
 
   const LOADING = document.getElementById('chat-loading');
   const iframe  = document.getElementById('dialoge-iframe');
 
-  iframe.addEventListener('load', () => {
-    // Send integration options to the iframe (chatbot ID)
-    setTimeout(() => {
-      iframe.contentWindow.postMessage(
-        { action: 'integrationOptions', chatbotID: 'dafolo' },
-        '*'
-      );
-      // Fade in the iframe and hide the loading spinner
-      iframe.style.opacity = '1';
-      LOADING.classList.add('hidden');
-    }, 800);
-  });
+  async function initChat() {
+    // Get the chatbot ID that was entered at login
+    const session = await fetch('/api/session').then(r => r.json());
+    const chatbotID = session.chatbotId;
+
+    iframe.addEventListener('load', () => {
+      setTimeout(() => {
+        iframe.contentWindow.postMessage(
+          { action: 'integrationOptions', chatbotID },
+          '*'
+        );
+        iframe.style.opacity = '1';
+        LOADING.classList.add('hidden');
+      }, 800);
+    });
+
+    // Trigger the iframe to load (src is already set in HTML — just reload to be safe)
+    // No action needed; the load event fires when the iframe is ready.
+  }
+
+  initChat();
 
   // ── Logout ───────────────────────────────────────────────────
   document.getElementById('logout-btn').addEventListener('click', async () => {

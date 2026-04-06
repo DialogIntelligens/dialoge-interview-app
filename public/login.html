@@ -199,12 +199,24 @@
         </svg>
       </div>
       <h1>Welcome</h1>
-      <p>Enter your access code to start the session.</p>
+      <p>Enter your chatbot ID and access code to start the session.</p>
     </div>
 
     <div class="error-msg" id="error-msg"></div>
 
     <form id="login-form">
+      <div class="form-group">
+        <label for="chatbot-id">Chatbot ID</label>
+        <input
+          type="text"
+          id="chatbot-id"
+          name="chatbotId"
+          placeholder="e.g. dafolo"
+          autocomplete="off"
+          autofocus
+          spellcheck="false"
+        />
+      </div>
       <div class="form-group">
         <label for="code">Access code</label>
         <input
@@ -213,7 +225,6 @@
           name="code"
           placeholder="Enter your code"
           autocomplete="off"
-          autofocus
         />
       </div>
       <button type="submit" class="btn" id="submit-btn">Continue</button>
@@ -231,8 +242,21 @@
       e.preventDefault();
       errorMsg.classList.remove('show');
 
+      const chatbotId = document.getElementById('chatbot-id').value.trim();
       const code = document.getElementById('code').value.trim();
-      if (!code) return;
+
+      if (!chatbotId) {
+        errorMsg.textContent = 'Please enter a chatbot ID.';
+        errorMsg.classList.add('show');
+        document.getElementById('chatbot-id').focus();
+        return;
+      }
+      if (!code) {
+        errorMsg.textContent = 'Please enter the access code.';
+        errorMsg.classList.add('show');
+        document.getElementById('code').focus();
+        return;
+      }
 
       submitBtn.disabled = true;
       submitBtn.textContent = 'Checking…';
@@ -241,7 +265,7 @@
         const res = await fetch('/api/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code })
+          body: JSON.stringify({ chatbotId, code })
         });
         const data = await res.json();
 
