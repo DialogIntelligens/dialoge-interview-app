@@ -51,10 +51,9 @@ app.get('/', (req, res) => {
 });
 
 // ── Branded client login pages ────────────────────────────────────────────────
+// Always show the branded page — clients bookmark this URL as their entry point.
+// Submitting the form will redirect to /chat or /select as normal.
 app.get('/dafolo', (req, res) => {
-  if (req.session && req.session.authenticated) {
-    return res.redirect(req.session.chatbotId ? '/chat' : '/select');
-  }
   res.sendFile(path.join(__dirname, 'public', 'dafolo.html'));
 });
 
