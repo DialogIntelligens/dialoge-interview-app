@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dialoge — Chat Session</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --orange: #C96A3A;
+      --orange-hover: #b05a2f;
+      --orange-light: #f9ede6;
+      --text: #1a1a1a;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --bg: #f8f7f5;
+      --white: #ffffff;
+      --radius: 10px;
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    /* ── Layout ── */
+    .layout {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* ── Top nav ── */
+    .topbar {
+      height: 56px;
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    .topbar-logo {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.3px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+    }
+
+    .topbar-logo span.dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: var(--orange);
+      border-radius: 50%;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .topbar-badge {
+      font-size: 12px;
+      color: var(--muted);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 12px;
+    }
+
+    .btn-logout {
+      font-size: 13px;
+      color: var(--muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: var(--font);
+      padding: 6px 10px;
+      border-radius: 6px;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .btn-logout:hover {
+      background: var(--border);
+      color: var(--text);
+    }
+
+    /* ── Main content area ── */
+    .main {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      padding: 24px;
+      gap: 24px;
+    }
+
+    /* ── Chat column ── */
+    .chat-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .chat-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+      position: relative;
+    }
+
+    .chat-card-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .chat-avatar {
+      width: 32px;
+      height: 32px;
+      background: var(--orange-light);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .chat-avatar svg {
+      width: 16px;
+      height: 16px;
+      fill: var(--orange);
+    }
+
+    .chat-info h2 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .chat-info p {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: #22c55e;
+      border-radius: 50%;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+
+    /* The iframe wrapper — this is where the chatbot lives */
+    .chat-iframe-wrapper {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Loading state */
+    .chat-loading {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 14px;
+      background: var(--white);
+      z-index: 2;
+      transition: opacity 0.3s;
+    }
+
+    .chat-loading.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border: 2px solid var(--border);
+      border-top-color: var(--orange);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 280px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .sidebar-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+
+    .sidebar-card h3 {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .sidebar-card p {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* Rating */
+    .rating-section h3 {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .rating-section p {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 14px;
+      line-height: 1.5;
+    }
+
+    .stars {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .star-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 2px;
+      font-size: 22px;
+      color: var(--border);
+      transition: color 0.15s, transform 0.1s;
+      line-height: 1;
+    }
+
+    .star-btn:hover,
+    .star-btn.active {
+      color: #f59e0b;
+    }
+
+    .star-btn:hover { transform: scale(1.15); }
+
+    .feedback-textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      font-size: 13px;
+      font-family: var(--font);
+      color: var(--text);
+      resize: vertical;
+      min-height: 80px;
+      outline: none;
+      transition: border-color 0.15s;
+      margin-bottom: 10px;
+    }
+
+    .feedback-textarea:focus {
+      border-color: var(--orange);
+      box-shadow: 0 0 0 3px rgba(201, 106, 58, 0.1);
+    }
+
+    .btn-submit-feedback {
+      width: 100%;
+      padding: 10px;
+      background: var(--orange);
+      color: white;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 600;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn-submit-feedback:hover { background: var(--orange-hover); }
+    .btn-submit-feedback:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .feedback-success {
+      text-align: center;
+      padding: 12px 0;
+      display: none;
+    }
+
+    .feedback-success .check {
+      font-size: 28px;
+      margin-bottom: 6px;
+    }
+
+    .feedback-success p {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    /* Responsive — hide sidebar on small screens */
+    @media (max-width: 720px) {
+      .main { padding: 16px; }
+      .sidebar { display: none; }
+    }
+
+    /* ── Chatbot CSS overrides ── make the widget fill the card ── */
+    /* These override the floating widget behaviour */
+    #chat-container {
+      position: absolute !important;
+      bottom: 0 !important;
+      right: 0 !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      max-width: none !important;
+      max-height: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      border: none !important;
+      z-index: 1 !important;
+      display: block !important;
+      opacity: 1 !important;
+      transform: none !important;
+    }
+
+    #chat-iframe {
+      width: 100% !important;
+      height: 100% !important;
+      border-radius: 0 !important;
+    }
+
+    /* Hide the floating trigger button and bubbles */
+    #chat-button,
+    #chatbase-message-bubbles,
+    #plus-overlay,
+    #minimize-button {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- Top navigation -->
+  <nav class="topbar">
+    <a class="topbar-logo" href="/chat">
+      Dialoge<span class="dot"></span>
+    </a>
+    <div class="topbar-right">
+      <span class="topbar-badge">Interview session</span>
+      <button class="btn-logout" id="logout-btn">Sign out</button>
+    </div>
+  </nav>
+
+  <!-- Page body -->
+  <main class="main">
+
+    <!-- Chat column -->
+    <div class="chat-col">
+      <div class="chat-card">
+
+        <!-- Chat header -->
+        <div class="chat-card-header">
+          <div class="chat-avatar">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+            </svg>
+          </div>
+          <div class="chat-info">
+            <h2>Dialoge Assistant</h2>
+            <p>Ready to help you</p>
+          </div>
+          <span class="status-dot" title="Online"></span>
+        </div>
+
+        <!-- Iframe wrapper — the chatbot will be moved here -->
+        <div class="chat-iframe-wrapper" id="chat-wrapper">
+          <div class="chat-loading" id="chat-loading">
+            <div class="spinner"></div>
+            <span>Loading chat…</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+
+      <!-- Info card -->
+      <div class="sidebar-card">
+        <h3>About this session</h3>
+        <p>This is a secure interview session. Your conversation is private and only visible to authorised staff.</p>
+      </div>
+
+      <!-- Feedback card -->
+      <div class="sidebar-card rating-section" id="rating-card">
+        <h3>Rate this session</h3>
+        <p>Once you're done, let us know how the conversation went.</p>
+
+        <div id="rating-form">
+          <div class="stars" id="stars-container" role="group" aria-label="Star rating">
+            <button class="star-btn" data-value="1" aria-label="1 star">★</button>
+            <button class="star-btn" data-value="2" aria-label="2 stars">★</button>
+            <button class="star-btn" data-value="3" aria-label="3 stars">★</button>
+            <button class="star-btn" data-value="4" aria-label="4 stars">★</button>
+            <button class="star-btn" data-value="5" aria-label="5 stars">★</button>
+          </div>
+
+          <textarea
+            class="feedback-textarea"
+            id="feedback-text"
+            placeholder="Optional comments…"
+          ></textarea>
+
+          <button class="btn-submit-feedback" id="submit-feedback" disabled>
+            Send feedback
+          </button>
+        </div>
+
+        <div class="feedback-success" id="feedback-success">
+          <div class="check">✓</div>
+          <p>Thanks for your feedback!</p>
+        </div>
+      </div>
+
+    </aside>
+
+  </main>
+</div>
+
+<!-- Load the Dialoge chatbot script -->
+<script src="https://scripts.dialogintelligens.dk/universal-chatbot.js?id=dafolo"></script>
+
+<script>
+  // ── Inline chatbot setup ──────────────────────────────────────
+  // Wait for the chatbot script to initialise, then:
+  // 1. Open the chat programmatically
+  // 2. Move the chat container into our wrapper div
+  // 3. Override its styles to fill the wrapper
+
+  const CHAT_WRAPPER = document.getElementById('chat-wrapper');
+  const LOADING = document.getElementById('chat-loading');
+
+  function setupInlineChat() {
+    // Try to find the chat container the script injected
+    const container = document.getElementById('chat-container');
+    if (!container) return false;
+
+    // Move it into our wrapper so CSS can control its size
+    CHAT_WRAPPER.appendChild(container);
+
+    // Force it to fill the wrapper (CSS above also handles this,
+    // but inline styles ensure overrides even if specificity fights)
+    container.style.cssText = `
+      position: absolute !important;
+      top: 0 !important; left: 0 !important;
+      right: 0 !important; bottom: 0 !important;
+      width: 100% !important; height: 100% !important;
+      max-width: none !important; max-height: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      border: none !important;
+      z-index: 1 !important;
+    `;
+
+    // Hide loading overlay once iframe loads
+    const iframe = document.getElementById('chat-iframe');
+    if (iframe) {
+      iframe.addEventListener('load', () => {
+        LOADING.classList.add('hidden');
+      });
+    } else {
+      // Fallback: hide loading after a delay
+      setTimeout(() => LOADING.classList.add('hidden'), 2500);
+    }
+
+    return true;
+  }
+
+  function waitForChatbot() {
+    // Poll until the DialogIntelligens object and chat container are ready
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts++;
+
+      // Open the chat if the API is available
+      if (window.DialogIntelligens) {
+        window.DialogIntelligens.open();
+      }
+
+      // Move the container once it exists
+      if (setupInlineChat()) {
+        clearInterval(interval);
+        return;
+      }
+
+      if (attempts > 60) {
+        // Give up after ~6 seconds and hide loading anyway
+        clearInterval(interval);
+        LOADING.classList.add('hidden');
+      }
+    }, 100);
+  }
+
+  // Start waiting once the page has loaded
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', waitForChatbot);
+  } else {
+    waitForChatbot();
+  }
+
+  // ── Logout ───────────────────────────────────────────────────
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    await fetch('/api/logout', { method: 'POST' });
+    window.location.href = '/';
+  });
+
+  // ── Star rating ───────────────────────────────────────────────
+  let selectedRating = 0;
+
+  const starBtns = document.querySelectorAll('.star-btn');
+  const submitFeedback = document.getElementById('submit-feedback');
+  const feedbackForm = document.getElementById('rating-form');
+  const feedbackSuccess = document.getElementById('feedback-success');
+
+  starBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      selectedRating = parseInt(btn.dataset.value, 10);
+      updateStars(selectedRating);
+      submitFeedback.disabled = false;
+    });
+
+    btn.addEventListener('mouseenter', () => {
+      highlightStars(parseInt(btn.dataset.value, 10));
+    });
+  });
+
+  document.getElementById('stars-container').addEventListener('mouseleave', () => {
+    updateStars(selectedRating);
+  });
+
+  function highlightStars(count) {
+    starBtns.forEach((b) => {
+      b.classList.toggle('active', parseInt(b.dataset.value, 10) <= count);
+    });
+  }
+
+  function updateStars(count) {
+    starBtns.forEach((b) => {
+      b.classList.toggle('active', parseInt(b.dataset.value, 10) <= count);
+    });
+  }
+
+  submitFeedback.addEventListener('click', () => {
+    // In a real integration you'd POST to the Dialoge rate API here.
+    // For now, just show the thank-you state.
+    feedbackForm.style.display = 'none';
+    feedbackSuccess.style.display = 'block';
+
+    console.log('Feedback submitted:', {
+      rating: selectedRating,
+      comment: document.getElementById('feedback-text').value
+    });
+  });
+</script>
+
+</body>
+</html>

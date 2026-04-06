@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: dialoge-interview-app
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: ACCESS_CODE
+        sync: false   # set this manually in the Render dashboard
+      - key: SESSION_SECRET
+        generateValue: true
+    autoDeploy: true
