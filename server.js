@@ -50,6 +50,14 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
+// ── Branded client login pages ────────────────────────────────────────────────
+app.get('/dafolo', (req, res) => {
+  if (req.session && req.session.authenticated) {
+    return res.redirect(req.session.chatbotId ? '/chat' : '/select');
+  }
+  res.sendFile(path.join(__dirname, 'public', 'dafolo.html'));
+});
+
 // ── Login ─────────────────────────────────────────────────────────────────────
 app.post('/api/login', (req, res) => {
   const { chatbotId, code } = req.body;        // chatbotId field = "username" from the form

@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vio8 — Interview Access</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --purple: #8b5cf6;
+      --purple-light: #a78bfa;
+      --teal: #06b6d4;
+      --teal-light: #67e8f9;
+      --bg: #0d0d1a;
+      --card-bg: #13131f;
+      --border: rgba(255,255,255,0.08);
+      --text: #f0f0ff;
+      --muted: #8b8ba8;
+      --white: #ffffff;
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      overflow: hidden;
+    }
+
+    /* ── Ambient glow blobs ── */
+    .glow-blob {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.18;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .glow-blob-1 {
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, #8b5cf6, transparent);
+      top: -150px; left: -150px;
+      animation: driftA 12s ease-in-out infinite alternate;
+    }
+
+    .glow-blob-2 {
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, #06b6d4, transparent);
+      bottom: -100px; right: -100px;
+      animation: driftB 15s ease-in-out infinite alternate;
+    }
+
+    @keyframes driftA {
+      from { transform: translate(0, 0); }
+      to   { transform: translate(80px, 60px); }
+    }
+
+    @keyframes driftB {
+      from { transform: translate(0, 0); }
+      to   { transform: translate(-60px, -40px); }
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 48px 40px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 0 60px rgba(139,92,246,0.12), 0 0 30px rgba(6,182,212,0.06);
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── Vio8 Logo ── */
+    .logo-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 36px;
+    }
+
+    .vio8-logo {
+      animation: float 4s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50%       { transform: translateY(-8px); }
+    }
+
+    /* Sparkles */
+    .sparkle {
+      position: absolute;
+      border-radius: 50%;
+      animation: sparkleAnim 2.5s ease-in-out infinite;
+    }
+
+    @keyframes sparkleAnim {
+      0%, 100% { opacity: 0; transform: scale(0.5); }
+      50%       { opacity: 1; transform: scale(1); }
+    }
+
+    .logo-container {
+      position: relative;
+      display: inline-block;
+    }
+
+    /* ── Form ── */
+    .card-subtitle {
+      text-align: center;
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 28px;
+      line-height: 1.5;
+    }
+
+    .form-group { margin-bottom: 16px; }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 6px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    input[type="password"] {
+      width: 100%;
+      padding: 12px 16px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 15px;
+      font-family: var(--font);
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input[type="password"]::placeholder { color: var(--muted); }
+
+    input[type="password"]:focus {
+      border-color: var(--purple);
+      box-shadow: 0 0 0 3px rgba(139,92,246,0.2);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 13px;
+      background: linear-gradient(135deg, var(--purple) 0%, var(--teal) 100%);
+      color: white;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 15px;
+      font-weight: 600;
+      font-family: var(--font);
+      cursor: pointer;
+      margin-top: 8px;
+      transition: opacity 0.15s, transform 0.1s;
+      letter-spacing: 0.02em;
+    }
+
+    .btn:hover { opacity: 0.9; }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .error-msg {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      color: #fca5a5;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .error-msg.show { display: block; }
+
+    .footer-note {
+      text-align: center;
+      font-size: 11px;
+      color: rgba(139,139,168,0.5);
+      margin-top: 24px;
+      letter-spacing: 0.03em;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient glow -->
+  <div class="glow-blob glow-blob-1"></div>
+  <div class="glow-blob glow-blob-2"></div>
+
+  <div class="card">
+
+    <!-- Vio8 Logo SVG -->
+    <div class="logo-wrap">
+      <div class="logo-container">
+
+        <!-- Sparkles -->
+        <div class="sparkle" style="width:6px;height:6px;background:#c4b5fd;top:-10px;right:10px;animation-delay:0s;"></div>
+        <div class="sparkle" style="width:4px;height:4px;background:#67e8f9;top:5px;right:-12px;animation-delay:0.6s;"></div>
+        <div class="sparkle" style="width:5px;height:5px;background:#a78bfa;top:-16px;right:35px;animation-delay:1.2s;"></div>
+        <div class="sparkle" style="width:3px;height:3px;background:#06b6d4;top:0px;left:-8px;animation-delay:0.9s;"></div>
+
+        <svg class="vio8-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 120" width="240" height="110">
+          <defs>
+            <linearGradient id="viGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#c4b5fd"/>
+              <stop offset="100%" stop-color="#8b5cf6"/>
+            </linearGradient>
+            <linearGradient id="tealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#06b6d4"/>
+              <stop offset="100%" stop-color="#0891b2"/>
+            </linearGradient>
+            <linearGradient id="robotBodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#ddd6fe"/>
+              <stop offset="100%" stop-color="#8b5cf6"/>
+            </linearGradient>
+            <linearGradient id="bodyBlobGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#06b6d4"/>
+              <stop offset="100%" stop-color="#0284c7"/>
+            </linearGradient>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
+              <feMerge>
+                <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+
+          <!-- "Vi" text -->
+          <text x="4" y="96" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+                font-size="88" font-weight="800" font-style="italic"
+                fill="url(#viGrad)" filter="url(#glow)" letter-spacing="-4">Vi</text>
+
+          <!-- Robot body blob (the "8" shape / seat) -->
+          <ellipse cx="213" cy="94" rx="28" ry="22" fill="url(#bodyBlobGrad)" opacity="0.95"/>
+          <!-- Inner hole of "8" -->
+          <ellipse cx="213" cy="94" rx="12" ry="9" fill="#0d0d1a" opacity="0.7"/>
+
+          <!-- Robot dome / head -->
+          <ellipse cx="213" cy="55" rx="22" ry="16" fill="url(#robotBodyGrad)" opacity="0.95"/>
+          <!-- Dome highlight -->
+          <ellipse cx="208" cy="50" rx="8" ry="5" fill="white" opacity="0.15"/>
+
+          <!-- Robot face – eyes -->
+          <circle cx="205" cy="56" r="5" fill="#1e1b4b" opacity="0.9"/>
+          <circle cx="221" cy="56" r="5" fill="#1e1b4b" opacity="0.9"/>
+          <!-- Eye glow -->
+          <circle cx="205" cy="56" r="3.5" fill="#818cf8"/>
+          <circle cx="221" cy="56" r="3.5" fill="#818cf8"/>
+          <!-- Pupil shine -->
+          <circle cx="206.5" cy="54.5" r="1.2" fill="white" opacity="0.8"/>
+          <circle cx="222.5" cy="54.5" r="1.2" fill="white" opacity="0.8"/>
+
+          <!-- Smile -->
+          <path d="M207 62 Q213 67 219 62" stroke="#4c1d95" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.8"/>
+
+          <!-- Antenna -->
+          <line x1="213" y1="39" x2="213" y2="31" stroke="#c4b5fd" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="213" cy="28" r="4" fill="#7c3aed"/>
+          <circle cx="213" cy="28" r="2" fill="#c4b5fd"/>
+
+          <!-- Robot neck connector -->
+          <rect x="208" y="70" width="10" height="7" rx="2" fill="#7c3aed" opacity="0.8"/>
+
+          <!-- "o" as robot body / torso area -->
+          <text x="183" y="96" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+                font-size="88" font-weight="800" font-style="italic"
+                fill="url(#viGrad)" opacity="0.0" letter-spacing="-4">o</text>
+
+        </svg>
+
+        <!-- "Vio8" wordmark below robot -->
+        <div style="text-align:center;margin-top:-8px;">
+          <span style="font-size:36px;font-weight:800;font-style:italic;letter-spacing:-1px;
+            background:linear-gradient(135deg,#c4b5fd 0%,#8b5cf6 40%,#06b6d4 100%);
+            -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+            background-clip:text;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+            Vio8
+          </span>
+        </div>
+
+      </div>
+    </div>
+
+    <p class="card-subtitle">Enter your access code to start your interview session</p>
+
+    <div class="error-msg" id="error-msg"></div>
+
+    <form id="login-form">
+      <div class="form-group">
+        <label for="code">Access code</label>
+        <input
+          type="password"
+          id="code"
+          name="code"
+          placeholder="••••••••"
+          autocomplete="off"
+          autofocus
+        />
+      </div>
+      <button type="submit" class="btn" id="submit-btn">Enter session →</button>
+    </form>
+
+    <p class="footer-note">Powered by Dialoge Intelligens</p>
+  </div>
+
+  <script>
+    const form      = document.getElementById('login-form');
+    const errorMsg  = document.getElementById('error-msg');
+    const submitBtn = document.getElementById('submit-btn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorMsg.classList.remove('show');
+
+      const code = document.getElementById('code').value.trim();
+      if (!code) {
+        errorMsg.textContent = 'Please enter your access code.';
+        errorMsg.classList.add('show');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Verifying…';
+
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatbotId: 'dafolo', code })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          window.location.href = data.redirect || '/chat';
+        } else {
+          errorMsg.textContent = data.message || 'Invalid access code.';
+          errorMsg.classList.add('show');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Enter session →';
+          document.getElementById('code').value = '';
+          document.getElementById('code').focus();
+        }
+      } catch (err) {
+        errorMsg.textContent = 'Something went wrong. Please try again.';
+        errorMsg.classList.add('show');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Enter session →';
+      }
+    });
+  </script>
+
+</body>
+</html>
