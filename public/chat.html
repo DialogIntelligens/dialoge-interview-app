@@ -545,16 +545,28 @@
     });
   }
 
-  submitFeedback.addEventListener('click', () => {
-    // In a real integration you'd POST to the Dialoge rate API here.
-    // For now, just show the thank-you state.
+  submitFeedback.addEventListener('click', async () => {
+    submitFeedback.disabled = true;
+    submitFeedback.textContent = 'Sending…';
+
+    try {
+      const res = await fetch('/api/rate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rating: selectedRating,
+          comment: document.getElementById('feedback-text').value
+        })
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || 'Failed');
+    } catch (err) {
+      console.error('Rating error:', err);
+      // Show success UI anyway — don't block the user
+    }
+
     feedbackForm.style.display = 'none';
     feedbackSuccess.style.display = 'block';
-
-    console.log('Feedback submitted:', {
-      rating: selectedRating,
-      comment: document.getElementById('feedback-text').value
-    });
   });
 </script>
 
