@@ -411,12 +411,19 @@
           <span class="status-dot" title="Online"></span>
         </div>
 
-        <!-- Iframe wrapper — the chatbot will be moved here -->
+        <!-- Iframe wrapper — chatbot loads directly here -->
         <div class="chat-iframe-wrapper" id="chat-wrapper">
           <div class="chat-loading" id="chat-loading">
             <div class="spinner"></div>
             <span>Loading chat…</span>
           </div>
+          <iframe
+            id="dialoge-iframe"
+            src="https://chatbot.dialogintelligens.dk?parentOrigin=https://dialoge-interview-app.onrender.com"
+            frameborder="0"
+            allow="microphone"
+            style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;opacity:0;transition:opacity 0.3s;"
+          ></iframe>
         </div>
 
       </div>
@@ -467,86 +474,26 @@
   </main>
 </div>
 
-<!-- Load the Dialoge chatbot script -->
-<script src="https://scripts.dialogintelligens.dk/universal-chatbot.js?id=dafolo"></script>
-
 <script>
-  // ── Inline chatbot setup ──────────────────────────────────────
-  // Wait for the chatbot script to initialise, then:
-  // 1. Open the chat programmatically
-  // 2. Move the chat container into our wrapper div
-  // 3. Override its styles to fill the wrapper
+  // ── Direct iframe chatbot setup ───────────────────────────────
+  // The Dialoge chatbot is loaded as a direct iframe.
+  // After it loads we send a postMessage with the chatbot ID.
 
-  const CHAT_WRAPPER = document.getElementById('chat-wrapper');
   const LOADING = document.getElementById('chat-loading');
+  const iframe  = document.getElementById('dialoge-iframe');
 
-  function setupInlineChat() {
-    // Try to find the chat container the script injected
-    const container = document.getElementById('chat-container');
-    if (!container) return false;
-
-    // Move it into our wrapper so CSS can control its size
-    CHAT_WRAPPER.appendChild(container);
-
-    // Force it to fill the wrapper (CSS above also handles this,
-    // but inline styles ensure overrides even if specificity fights)
-    container.style.cssText = `
-      position: absolute !important;
-      top: 0 !important; left: 0 !important;
-      right: 0 !important; bottom: 0 !important;
-      width: 100% !important; height: 100% !important;
-      max-width: none !important; max-height: none !important;
-      border-radius: 0 !important;
-      box-shadow: none !important;
-      border: none !important;
-      z-index: 1 !important;
-    `;
-
-    // Hide loading overlay once iframe loads
-    const iframe = document.getElementById('chat-iframe');
-    if (iframe) {
-      iframe.addEventListener('load', () => {
-        LOADING.classList.add('hidden');
-      });
-    } else {
-      // Fallback: hide loading after a delay
-      setTimeout(() => LOADING.classList.add('hidden'), 2500);
-    }
-
-    return true;
-  }
-
-  function waitForChatbot() {
-    // Poll until the DialogIntelligens object and chat container are ready
-    let attempts = 0;
-    const interval = setInterval(() => {
-      attempts++;
-
-      // Open the chat if the API is available
-      if (window.DialogIntelligens) {
-        window.DialogIntelligens.open();
-      }
-
-      // Move the container once it exists
-      if (setupInlineChat()) {
-        clearInterval(interval);
-        return;
-      }
-
-      if (attempts > 60) {
-        // Give up after ~6 seconds and hide loading anyway
-        clearInterval(interval);
-        LOADING.classList.add('hidden');
-      }
-    }, 100);
-  }
-
-  // Start waiting once the page has loaded
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', waitForChatbot);
-  } else {
-    waitForChatbot();
-  }
+  iframe.addEventListener('load', () => {
+    // Send integration options to the iframe (chatbot ID)
+    setTimeout(() => {
+      iframe.contentWindow.postMessage(
+        { action: 'integrationOptions', chatbotID: 'dafolo' },
+        '*'
+      );
+      // Fade in the iframe and hide the loading spinner
+      iframe.style.opacity = '1';
+      LOADING.classList.add('hidden');
+    }, 800);
+  });
 
   // ── Logout ───────────────────────────────────────────────────
   document.getElementById('logout-btn').addEventListener('click', async () => {
