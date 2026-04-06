@@ -180,9 +180,8 @@ app.post('/api/rate', requireAuth, async (req, res) => {
   try {
     const token = await getDialogeToken(chatbotId);
     const resp = await dialoge('POST', '/api/v1/chat/rate', token, {
-      chatbot_id: chatbotId,
       rating,
-      comment: comment || ''
+      feedback: comment || ''
     });
     console.log('Dialoge rate response:', resp.status, JSON.stringify(resp.body));
     res.json({ success: true });
