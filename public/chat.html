@@ -233,9 +233,12 @@
 
       <div class="chat-card">
         <div class="chat-card-header">
-          <div class="chat-avatar">
+          <div class="chat-avatar" id="chat-avatar">
             <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
           </div>
+          <!-- Vio8 logo shown instead of avatar for dafolo sessions -->
+          <img id="vio8-logo" src="/vio8-logo.png" alt="Vio8"
+               style="display:none;height:36px;width:auto;object-fit:contain;" />
           <div class="chat-info">
             <h2 id="chat-title">Dialoge Assistant</h2>
             <p>Ready to help you</p>
@@ -344,6 +347,12 @@
     const session = await fetch('/api/session').then(r => r.json());
     allBots = session.chatbots || [];
     const chatbotID = session.chatbotId;
+
+    // Show Vio8 logo in header for dafolo sessions
+    if (session.clientName === 'dafolo') {
+      document.getElementById('chat-avatar').style.display = 'none';
+      document.getElementById('vio8-logo').style.display = 'block';
+    }
 
     // Build switcher tabs if there are multiple bots
     if (allBots.length > 1) {

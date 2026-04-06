@@ -103,8 +103,9 @@ app.post('/api/login', (req, res) => {
 // ── Session info ──────────────────────────────────────────────────────────────
 app.get('/api/session', requireAuth, (req, res) => {
   res.json({
-    chatbotId: req.session.chatbotId,
-    chatbots:  req.session.chatbots || []
+    chatbotId:  req.session.chatbotId,
+    chatbots:   req.session.chatbots || [],
+    clientName: req.session.clientName || ''
   });
 });
 
