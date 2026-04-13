@@ -2,13 +2,20 @@ const express = require('express');
 const session = require('express-session');
 const path = require('path');
 const https = require('https');
+const crypto = require('crypto');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const ACCESS_CODE    = process.env.ACCESS_CODE    || 'interview2025';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'dialoge-secret-key-change-me';
 const DIALOGE_API_KEY = process.env.DIALOGE_API_KEY || '';
+
+// Path to the passwords file.
+// Set PASSWORDS_FILE env var to a persistent disk path (e.g. /data/passwords.json)
+// on Render if you want password changes to survive redeploys.
+// Otherwise defaults to the app directory (changes lost on redeploy).
+const PASSWORDS_FILE = process.env.PASSWORDS_FILE || path.join(__dirname, 'passwords.json');
 
 // CLIENTS env var — JSON map of clientName → [chatbotId, ...]
 // Example: {"intern":["intern-a","intern-b","intern-c"],"dafolo":["dafolo"]}
@@ -21,6 +28,49 @@ try {
 } catch (e) {
   console.error('Could not parse CLIENTS env var as JSON:', e.message);
 }
+
+// ── Password helpers ──────────────────────────────────────────────────────────
+
+function hashPassword(password) {
+  // PBKDF2 with SESSION_SECRET as salt — no extra packages needed
+  return crypto.pbkdf2Sync(password, SESSION_SECRET, 100000, 64, 'sha512').toString('hex');
+}
+
+function loadPasswords() {
+  try {
+    if (fs.existsSync(PASSWORDS_FILE)) {
+      return JSON.parse(fs.readFileSync(PASSWORDS_FILE, 'utf8'));
+    }
+  } catch (e) {
+    console.error('Could not load passwords file:', e.message);
+  }
+  return {};
+}
+
+function savePasswords(passwords) {
+  try {
+    // Make sure the directory exists (important if using a Render disk path like /data)
+    const dir = path.dirname(PASSWORDS_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(PASSWORDS_FILE, JSON.stringify(passwords, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Could not save passwords file:', e.message);
+    throw e;
+  }
+}
+
+// Check if the provided code is correct for a given clientName.
+// Custom passwords (stored in passwords.json) take priority over the default formula.
+function checkPassword(clientName, code) {
+  const passwords = loadPasswords();
+  if (passwords[clientName]) {
+    return hashPassword(code) === passwords[clientName];
+  }
+  // Fall back to the default formula: clientName + '1306!#'
+  return code.trim() === clientName + '1306!#';
+}
+
+// ── Middleware ────────────────────────────────────────────────────────────────
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -65,9 +115,8 @@ app.post('/api/login', (req, res) => {
     return res.status(400).json({ success: false, message: 'Please enter a client ID.' });
   }
   const clientName = chatbotId.trim().toLowerCase();
-  const expectedCode = clientName + '1306!#';
 
-  if (!code || code.trim() !== expectedCode) {
+  if (!checkPassword(clientName, code || '')) {
     return res.status(401).json({ success: false, message: 'Invalid access code. Please try again.' });
   }
 
@@ -100,6 +149,42 @@ app.post('/api/login', (req, res) => {
   req.session.chatbotId = clientName;
   req.session.chatbots  = [clientName];
   return res.json({ success: true, redirect: '/chat' });
+});
+
+// ── Change password page ──────────────────────────────────────────────────────
+app.get('/change-password', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'change-password.html'));
+});
+
+// ── Change password API ───────────────────────────────────────────────────────
+app.post('/api/change-password', requireAuth, (req, res) => {
+  const { oldPassword, newPassword, confirmPassword } = req.body;
+  const clientName = req.session.clientName;
+
+  if (!oldPassword || !newPassword || !confirmPassword) {
+    return res.status(400).json({ success: false, message: 'All fields are required.' });
+  }
+
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ success: false, message: 'New passwords do not match.' });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ success: false, message: 'New password must be at least 6 characters.' });
+  }
+
+  if (!checkPassword(clientName, oldPassword)) {
+    return res.status(401).json({ success: false, message: 'Current password is incorrect.' });
+  }
+
+  try {
+    const passwords = loadPasswords();
+    passwords[clientName] = hashPassword(newPassword);
+    savePasswords(passwords);
+    res.json({ success: true, message: 'Password changed successfully.' });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Could not save password. Please try again.' });
+  }
 });
 
 // ── Session info ──────────────────────────────────────────────────────────────
